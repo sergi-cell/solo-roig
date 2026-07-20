@@ -21,7 +21,13 @@ const DEFAULT_QUESTS = [
   { id:'hab-deepwork',   area:'habitos',  name:'Bloque de trabajo profundo sin móvil',  xp:25, freq:'daily' },
   { id:'hab-sinpantalla',area:'habitos',  name:'Sin pantallas la 1ª hora del día',      xp:10, freq:'daily' },
   { id:'hab-planificar', area:'habitos',  name:'Planificar el día siguiente',           xp:10, freq:'daily' },
+  { id:'hab-scrolllimit',area:'habitos',  name:'Menos de 30 min de scroll en redes (fuera de trabajo)', xp:20, freq:'daily' },
+  { id:'hab-identidad',  area:'habitos',  name:'¿Qué haría hoy la versión millonaria de mí?', xp:10, freq:'daily' },
+  { id:'hab-finanzas',   area:'habitos',  name:'Revisar tus números y finanzas de la semana', xp:20, freq:'weekly' },
 ];
+
+// misiones añadidas después del lanzamiento inicial: se insertan solas en partidas ya guardadas
+const QUEST_ADDITIONS_V2 = ['hab-scrolllimit', 'hab-identidad', 'hab-finanzas'];
 
 const DEFAULT_REWARDS = [
   { id:'rw-choco',   name:'Chocolate',        cost:60  },
@@ -74,6 +80,9 @@ function defaultState(){
     bestStreak: 0,
     globalStreak: 0,
     lastActiveDate: null,
+    currentWeekKey: weekStr(),
+    weekStartXp: 0,
+    weekCompletions: 0,
     firstUseDate: today,
     activeDays: [today],
   };
@@ -95,6 +104,9 @@ function normalizeState(parsed){
   if(!parsed.lastActiveDate) parsed.lastActiveDate = null;
   if(!parsed.firstUseDate) parsed.firstUseDate = todayStr();
   if(!parsed.activeDays || !Array.isArray(parsed.activeDays)) parsed.activeDays = [todayStr()];
+  if(!parsed.currentWeekKey) parsed.currentWeekKey = weekStr();
+  if(typeof parsed.weekStartXp !== 'number') parsed.weekStartXp = (parsed.roigXp || 0) + (parsed.habitosXp || 0);
+  if(typeof parsed.weekCompletions !== 'number') parsed.weekCompletions = 0;
 
   // migraciones puntuales pedidas por Sergi
   parsed.quests = parsed.quests.filter(q => q.id !== 'roig-007');
@@ -104,6 +116,16 @@ function normalizeState(parsed){
   });
   const flex = parsed.penalties.find(p => p.id === 'pn-flexiones');
   if(flex) flex.name = '40 flexiones ahora mismo';
+
+  // misiones nuevas (mentalidad millonaria + control de dopamina) para partidas ya empezadas
+  QUEST_ADDITIONS_V2.forEach(id => {
+    if(!parsed.quests.some(q => q.id === id)){
+      const tmpl = DEFAULT_QUESTS.find(q => q.id === id);
+      if(tmpl){
+        parsed.quests.push({...tmpl, custom:false, streak:0, lastDone:null, createdDate: todayStr(), totalCompletions:0});
+      }
+    }
+  });
 
   return parsed;
 }
@@ -282,6 +304,20 @@ function checkExtraSpawn(){
   saveState();
 }
 
+function checkWeeklySummary(){
+  const wk = weekStr();
+  if(state.currentWeekKey === wk) return;
+  const xpGained = Math.max(0, (state.roigXp + state.habitosXp) - state.weekStartXp);
+  const completions = state.weekCompletions;
+  state.currentWeekKey = wk;
+  state.weekStartXp = state.roigXp + state.habitosXp;
+  state.weekCompletions = 0;
+  saveState();
+  if(completions > 0 || xpGained > 0){
+    showWeeklySummary(completions, xpGained);
+  }
+}
+
 function updateGlobalStreak(){
   const today = todayStr();
   if(state.lastActiveDate === today) return;
@@ -294,6 +330,7 @@ function render(){
   updateTodayLog();
   checkPenalties();
   checkExtraSpawn();
+  checkWeeklySummary();
 
   const totalXp = state.roigXp + state.habitosXp;
   const global = levelFromXp(totalXp);
@@ -608,6 +645,7 @@ function toggleQuest(id){
     addXp(q.area, -q.xp);
     state.wallet = Math.max(0, state.wallet - q.xp);
     state.totalCompleted = Math.max(0, state.totalCompleted - 1);
+    state.weekCompletions = Math.max(0, (state.weekCompletions || 0) - 1);
     playUndo();
   } else {
     if(q.freq === 'daily'){
@@ -619,6 +657,7 @@ function toggleQuest(id){
     addXp(q.area, q.xp);
     state.wallet += q.xp;
     state.totalCompleted += 1;
+    state.weekCompletions = (state.weekCompletions || 0) + 1;
     const today = todayStr();
     if(!state.activeDays.includes(today)) state.activeDays.push(today);
     updateGlobalStreak();
@@ -665,6 +704,7 @@ function completeExtraQuest(){
   addXp(extra.area, extra.xp);
   state.wallet += extra.xp;
   state.totalCompleted += 1;
+  state.weekCompletions = (state.weekCompletions || 0) + 1;
   updateGlobalStreak();
   state.activeExtra = null;
 
@@ -720,6 +760,12 @@ function showRankUp(beforeRank, afterRank){
   vibrate([50,50,50,50,90]);
   flashScreen(true);
 }
+function showWeeklySummary(completions, xpGained){
+  document.getElementById('weekly-summary-completions').textContent = completions;
+  document.getElementById('weekly-summary-xp').textContent = `+${xpGained} XP`;
+  document.getElementById('weekly-summary-streak').textContent = `${state.globalStreak} días`;
+  document.getElementById('weekly-summary-overlay').classList.remove('hidden');
+}
 function showReward(reward){
   document.getElementById('reward-title').textContent = reward.name;
   document.getElementById('reward-cost-used').textContent = `${reward.cost} 💎`;
@@ -734,6 +780,9 @@ document.getElementById('rankup-close').addEventListener('click', () => {
 });
 document.getElementById('reward-close').addEventListener('click', () => {
   document.getElementById('reward-overlay').classList.add('hidden');
+});
+document.getElementById('weekly-summary-close').addEventListener('click', () => {
+  document.getElementById('weekly-summary-overlay').classList.add('hidden');
 });
 document.getElementById('penalty-close').addEventListener('click', () => {
   document.getElementById('penalty-overlay').classList.add('hidden');

@@ -470,6 +470,18 @@ html,body{
   font-style:italic;
   letter-spacing:0.5px;
 }
+.sound-test-btn{
+  display:block;
+  margin:12px auto 0;
+  background:none;
+  border:1px solid rgba(91,227,255,0.3);
+  color:var(--cyan);
+  font-size:11px;
+  font-style:normal;
+  padding:6px 14px;
+  border-radius:20px;
+  cursor:pointer;
+}
 
 /* ---------- OVERLAYS ---------- */
 .overlay-root{

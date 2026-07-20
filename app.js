@@ -59,7 +59,8 @@ const DEFAULT_EXTRA_POOL = [
 const RANK_TITLES = { E:'Novato', D:'Aprendiz', C:'Competente', B:'Profesional', A:'Experto', S:'Maestro', SS:'Leyenda' };
 
 const PENALTY_THRESHOLD = 0.5; // si completas menos de la mitad de misiones diarias, hay castigo
-const EXTRA_SPAWN_CHANCE = 0.4; // probabilidad diaria de que aparezca una misión extraordinaria
+const EXTRA_SPAWN_CHANCE = 0.25; // probabilidad diaria de que aparezca una misión extraordinaria
+const EXTRA_SPAWN_HOUR_LIMIT = 13; // solo puede aparecer si abres la app antes de esta hora (mañana)
 
 function defaultState(){
   const today = todayStr();
@@ -215,7 +216,15 @@ function completionRate(q){
 let audioCtx = null;
 function getCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if(audioCtx.state === 'suspended') audioCtx.resume();
+  if(audioCtx.state === 'suspended'){
+    audioCtx.resume();
+    // truco de desbloqueo para Safari/iOS: un buffer silencioso obliga al motor de audio a arrancar de verdad
+    const buffer = audioCtx.createBuffer(1, 1, 22050);
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start(0);
+  }
   return audioCtx;
 }
 function beep(freq, duration, type, startTime, gainVal){
@@ -296,6 +305,9 @@ function checkPenalties(){
 function checkExtraSpawn(){
   const today = todayStr();
   if(state.lastExtraCheckDate === today) return;
+  // solo se juega la tirada si la primera vez que abres la app hoy es por la mañana;
+  // si abres más tarde, no se marca el día como comprobado y se reintenta la próxima vez que abras
+  if(new Date().getHours() >= EXTRA_SPAWN_HOUR_LIMIT) return;
   state.lastExtraCheckDate = today;
   if(!state.activeExtra && state.extraPool.length > 0 && Math.random() < EXTRA_SPAWN_CHANCE){
     const tmpl = state.extraPool[Math.floor(Math.random() * state.extraPool.length)];
@@ -799,6 +811,10 @@ document.getElementById('open-penalty-btn').addEventListener('click', () => {
   document.getElementById('penalty-overlay').classList.remove('hidden');
 });
 document.getElementById('extra-quest-complete').addEventListener('click', completeExtraQuest);
+document.getElementById('test-sound-btn').addEventListener('click', () => {
+  playQuestComplete();
+  vibrate(15);
+});
 
 /* ---------------- add quest modal ---------------- */
 let newQuestArea = 'roig';

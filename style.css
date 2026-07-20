@@ -102,14 +102,6 @@ html,body{
   text-shadow:0 0 6px rgba(255,215,107,0.5);
   margin-top:2px;
 }
-.icon-btn{
-  background:transparent;
-  border:1px solid rgba(255,255,255,0.15);
-  color:var(--text-dim);
-  width:34px; height:34px;
-  font-size:16px;
-  cursor:pointer;
-}
 .xp-bar-wrap{margin-top:14px;}
 .xp-bar{
   height:10px;
@@ -429,6 +421,46 @@ html,body{
   text-shadow:0 0 8px rgba(91,227,255,0.5);
 }
 .stats-label{font-size:10px; color:var(--text-dim); margin-top:4px; max-width:90px;}
+
+.backup-text{
+  font-size:12px;
+  color:var(--text-dim);
+  margin:10px 0 14px;
+  line-height:1.4;
+}
+.backup-actions{display:flex; gap:10px;}
+.backup-actions .sys-btn{flex:1; margin-top:0;}
+
+.danger-zone{
+  margin-top:34px;
+  border-top:1px dashed rgba(255,77,109,0.3);
+  padding-top:16px;
+}
+.danger-zone-header{color:var(--danger);}
+.danger-zone-header .log-icon{color:var(--danger);}
+.danger-zone-text{
+  font-size:12px;
+  color:var(--text-dim);
+  margin:10px 0 12px;
+  line-height:1.4;
+}
+.reset-warning{
+  font-size:13px;
+  color:var(--text);
+  text-align:left;
+  line-height:1.4;
+  margin-bottom:16px;
+  padding:10px;
+  border:1px solid rgba(255,77,109,0.3);
+  background:rgba(255,77,109,0.06);
+}
+.sys-btn.danger-btn:disabled{
+  opacity:0.35;
+  cursor:not-allowed;
+  border-color:rgba(255,77,109,0.3);
+  color:rgba(255,77,109,0.5);
+  background:transparent;
+}
 
 .sys-footer{
   margin-top:30px;

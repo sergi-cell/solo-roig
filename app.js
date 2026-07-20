@@ -81,35 +81,40 @@ function defaultState(){
 
 let state = loadState();
 
+function normalizeState(parsed){
+  if(!parsed.rewards || !Array.isArray(parsed.rewards)) parsed.rewards = DEFAULT_REWARDS.map(r => ({...r, custom:false}));
+  if(!parsed.penalties || !Array.isArray(parsed.penalties)) parsed.penalties = DEFAULT_PENALTIES.map(p => ({...p, custom:false}));
+  if(!parsed.extraPool || !Array.isArray(parsed.extraPool)) parsed.extraPool = DEFAULT_EXTRA_POOL.map(t => ({...t, custom:false}));
+  if(parsed.activeExtra === undefined) parsed.activeExtra = null;
+  if(!parsed.lastExtraCheckDate) parsed.lastExtraCheckDate = null;
+  if(!parsed.dailyLog || typeof parsed.dailyLog !== 'object') parsed.dailyLog = {};
+  if(typeof parsed.pendingPenalties !== 'number') parsed.pendingPenalties = 0;
+  if(typeof parsed.wallet !== 'number') parsed.wallet = 0;
+  if(typeof parsed.totalRedeemed !== 'number') parsed.totalRedeemed = 0;
+  if(typeof parsed.globalStreak !== 'number') parsed.globalStreak = 0;
+  if(!parsed.lastActiveDate) parsed.lastActiveDate = null;
+  if(!parsed.firstUseDate) parsed.firstUseDate = todayStr();
+  if(!parsed.activeDays || !Array.isArray(parsed.activeDays)) parsed.activeDays = [todayStr()];
+
+  // migraciones puntuales pedidas por Sergi
+  parsed.quests = parsed.quests.filter(q => q.id !== 'roig-007');
+  parsed.quests.forEach(q => {
+    if(!q.createdDate) q.createdDate = parsed.firstUseDate;
+    if(typeof q.totalCompletions !== 'number') q.totalCompletions = 0;
+  });
+  const flex = parsed.penalties.find(p => p.id === 'pn-flexiones');
+  if(flex) flex.name = '40 flexiones ahora mismo';
+
+  return parsed;
+}
+
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if(!parsed.quests || !Array.isArray(parsed.quests)) return defaultState();
-
-    if(!parsed.rewards || !Array.isArray(parsed.rewards)) parsed.rewards = DEFAULT_REWARDS.map(r => ({...r, custom:false}));
-    if(!parsed.penalties || !Array.isArray(parsed.penalties)) parsed.penalties = DEFAULT_PENALTIES.map(p => ({...p, custom:false}));
-    if(!parsed.extraPool || !Array.isArray(parsed.extraPool)) parsed.extraPool = DEFAULT_EXTRA_POOL.map(t => ({...t, custom:false}));
-    if(parsed.activeExtra === undefined) parsed.activeExtra = null;
-    if(!parsed.lastExtraCheckDate) parsed.lastExtraCheckDate = null;
-    if(!parsed.dailyLog || typeof parsed.dailyLog !== 'object') parsed.dailyLog = {};
-    if(typeof parsed.pendingPenalties !== 'number') parsed.pendingPenalties = 0;
-    if(typeof parsed.wallet !== 'number') parsed.wallet = 0;
-    if(typeof parsed.totalRedeemed !== 'number') parsed.totalRedeemed = 0;
-    if(typeof parsed.globalStreak !== 'number') parsed.globalStreak = 0;
-    if(!parsed.lastActiveDate) parsed.lastActiveDate = null;
-
-    // migraciones puntuales pedidas por Sergi
-    parsed.quests = parsed.quests.filter(q => q.id !== 'roig-007');
-    parsed.quests.forEach(q => {
-      if(!q.createdDate) q.createdDate = parsed.firstUseDate || todayStr();
-      if(typeof q.totalCompletions !== 'number') q.totalCompletions = 0;
-    });
-    const flex = parsed.penalties.find(p => p.id === 'pn-flexiones');
-    if(flex) flex.name = '40 flexiones ahora mismo';
-
-    return parsed;
+    return normalizeState(parsed);
   }catch(e){
     return defaultState();
   }
@@ -244,7 +249,11 @@ function updateTodayLog(){
   const dailyQuests = state.quests.filter(q => q.freq === 'daily');
   if(dailyQuests.length === 0) return;
   const completed = dailyQuests.filter(isDoneNow).length;
+  const existing = state.dailyLog[today];
+  // evita reescribir en cada render si no ha cambiado nada
+  if(existing && existing.completed === completed && existing.total === dailyQuests.length) return;
   state.dailyLog[today] = { completed, total: dailyQuests.length, processed: false };
+  saveState();
 }
 
 function checkPenalties(){
@@ -845,12 +854,66 @@ document.getElementById('penalty-modal-confirm').addEventListener('click', () =>
   document.getElementById('penalty-modal-overlay').classList.add('hidden');
 });
 
-/* ---------------- reset ---------------- */
+/* ---------------- respaldo: exportar / importar ---------------- */
+document.getElementById('export-backup-btn').addEventListener('click', () => {
+  const dataStr = JSON.stringify(state, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sistema-roig-backup-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('import-backup-btn').addEventListener('click', () => {
+  document.getElementById('import-backup-input').click();
+});
+document.getElementById('import-backup-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+    }catch(err){
+      alert('No se pudo leer el archivo. Asegúrate de que es una copia exportada desde esta app.');
+      return;
+    }
+    if(!parsed.quests || !Array.isArray(parsed.quests)){
+      alert('Ese archivo no parece una copia de seguridad válida.');
+      return;
+    }
+    if(!confirm('Esto reemplaza tu progreso actual por el de la copia importada. ¿Continuar?')) return;
+    state = normalizeState(parsed);
+    saveState();
+    render();
+    alert('Copia importada correctamente.');
+  };
+  reader.readAsText(file);
+});
+
+/* ---------------- reset (con confirmación por texto, a prueba de toques accidentales) ---------------- */
 document.getElementById('reset-btn').addEventListener('click', () => {
-  if(!confirm('Esto borrará todo tu progreso (nivel, XP, rachas, puntos). ¿Continuar?')) return;
+  document.getElementById('reset-confirm-input').value = '';
+  document.getElementById('reset-modal-confirm').disabled = true;
+  document.getElementById('reset-modal-overlay').classList.remove('hidden');
+});
+document.getElementById('reset-modal-cancel').addEventListener('click', () => {
+  document.getElementById('reset-modal-overlay').classList.add('hidden');
+});
+document.getElementById('reset-confirm-input').addEventListener('input', (e) => {
+  document.getElementById('reset-modal-confirm').disabled = e.target.value.trim().toUpperCase() !== 'BORRAR';
+});
+document.getElementById('reset-modal-confirm').addEventListener('click', () => {
   state = defaultState();
   saveState();
   render();
+  document.getElementById('reset-modal-overlay').classList.add('hidden');
 });
 
 /* ---------------- init ---------------- */

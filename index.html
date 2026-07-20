@@ -85,7 +85,6 @@
         <div class="hunter-level">NIVEL <span id="level-num">1</span></div>
         <div class="hunter-title" id="hunter-title">NOVATO</div>
       </div>
-      <button class="icon-btn" id="reset-btn" title="Reiniciar sistema">⟲</button>
     </div>
     <div class="xp-bar-wrap">
       <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
@@ -183,6 +182,16 @@
     <button class="add-quest-btn danger-add-btn" id="add-penalty-btn">+ AÑADIR CASTIGO</button>
   </details>
 
+  <section class="log-block backup-block">
+    <div class="log-block-header"><span class="log-icon">◆</span> RESPALDO</div>
+    <p class="backup-text">Tu progreso solo se guarda en este móvil. Descarga una copia de vez en cuando (por ejemplo a este Drive) por si cambias de teléfono o se borran los datos del navegador.</p>
+    <div class="backup-actions">
+      <button class="sys-btn" id="export-backup-btn">⬇ EXPORTAR COPIA</button>
+      <button class="sys-btn ghost" id="import-backup-btn">⬆ IMPORTAR COPIA</button>
+    </div>
+    <input type="file" id="import-backup-input" accept="application/json" class="hidden">
+  </section>
+
   <section class="log-block">
     <div class="log-block-header"><span class="log-icon">◆</span> ESTADÍSTICAS</div>
     <div class="stats-row">
@@ -190,6 +199,12 @@
       <div class="stats-item"><div class="stats-num" id="stat-streak">0</div><div class="stats-label">Mejor racha</div></div>
       <div class="stats-item"><div class="stats-num" id="stat-days">0</div><div class="stats-label">Días activo</div></div>
     </div>
+  </section>
+
+  <section class="log-block danger-zone">
+    <div class="log-block-header danger-zone-header"><span class="log-icon">◆</span> ZONA PELIGROSA</div>
+    <p class="danger-zone-text">Esto borra tu nivel, XP, rachas, puntos y todo el historial. No se puede deshacer.</p>
+    <button class="add-quest-btn danger-add-btn" id="reset-btn">REINICIAR SISTEMA</button>
   </section>
 
   <footer class="sys-footer">El Sistema observa. Cada misión te acerca al siguiente rango.</footer>
@@ -252,6 +267,20 @@
     <div class="modal-actions">
       <button class="sys-btn ghost" id="penalty-modal-cancel">CANCELAR</button>
       <button class="sys-btn" id="penalty-modal-confirm">CREAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: REINICIAR SISTEMA (confirmación por texto) ===== -->
+<div id="reset-modal-overlay" class="hidden overlay-root">
+  <div class="modal-box">
+    <div class="modal-title" style="color:var(--danger)">REINICIAR SISTEMA</div>
+    <div class="reset-warning">Esto borra TODO tu progreso: nivel, XP, rachas, puntos y misiones personalizadas. No se puede deshacer.</div>
+    <label class="modal-label">Escribe BORRAR para confirmar</label>
+    <input type="text" id="reset-confirm-input" class="modal-input" placeholder="BORRAR" autocomplete="off" autocapitalize="characters">
+    <div class="modal-actions">
+      <button class="sys-btn ghost" id="reset-modal-cancel">CANCELAR</button>
+      <button class="sys-btn danger-btn" id="reset-modal-confirm" disabled>REINICIAR</button>
     </div>
   </div>
 </div>

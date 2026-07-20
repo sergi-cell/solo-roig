@@ -83,6 +83,7 @@
       <div class="hunter-info">
         <div class="hunter-name">CAZADOR SEÑOR ROIG</div>
         <div class="hunter-level">NIVEL <span id="level-num">1</span></div>
+        <div class="hunter-title" id="hunter-title">NOVATO</div>
       </div>
       <button class="icon-btn" id="reset-btn" title="Reiniciar sistema">⟲</button>
     </div>
@@ -95,6 +96,11 @@
       <span class="wallet-text">PUNTOS DISPONIBLES</span>
       <span class="wallet-num" id="wallet-num">0</span>
     </div>
+    <div class="wallet-row streak-row">
+      <span class="wallet-icon">🔥</span>
+      <span class="wallet-text">RACHA ACTIVA</span>
+      <span class="wallet-num streak-num" id="global-streak">0</span>
+    </div>
   </header>
 
   <section id="penalty-box-section" class="hud-frame penalty-box hidden">
@@ -104,6 +110,15 @@
       <div class="penalty-box-sub" id="penalty-pending-count">1 caja sin abrir</div>
     </div>
     <button class="sys-btn danger-btn" id="open-penalty-btn">ABRIR</button>
+  </section>
+
+  <section id="extra-quest-section" class="hud-frame extra-quest hidden">
+    <div class="extra-quest-tag">✦ MISIÓN EXTRAORDINARIA ✦</div>
+    <div class="extra-quest-name" id="extra-quest-name">—</div>
+    <div class="extra-quest-row">
+      <span class="extra-quest-xp" id="extra-quest-xp">+0 XP</span>
+      <button class="sys-btn extra-btn" id="extra-quest-complete">COMPLETAR</button>
+    </div>
   </section>
 
   <section class="stats-grid">
@@ -139,6 +154,11 @@
 
   <button class="add-quest-btn" id="add-quest-btn">+ AÑADIR MISIÓN</button>
 
+  <section class="log-block">
+    <div class="log-block-header"><span class="log-icon">◆</span> RADIOGRAFÍA DEL CAZADOR</div>
+    <div id="radar-list" class="radar-list"></div>
+  </section>
+
   <section class="log-block shop-block">
     <div class="log-block-header">
       <span class="log-icon">◆</span> TIENDA DE RECOMPENSAS
@@ -150,12 +170,18 @@
 
   <section class="log-block">
     <div class="log-block-header">
-      <span class="log-icon">◆</span> CASTIGOS POSIBLES
+      <span class="log-icon">◆</span> BANCO DE MISIONES EXTRAORDINARIAS
     </div>
-    <div id="penalty-list" class="quest-list"></div>
+    <div id="extra-pool-list" class="quest-list"></div>
   </section>
 
-  <button class="add-quest-btn danger-add-btn" id="add-penalty-btn">+ AÑADIR CASTIGO</button>
+  <details class="log-block penalty-manage">
+    <summary class="log-block-header penalty-summary">
+      <span class="log-icon">◆</span> GESTIONAR CASTIGOS <span class="spoiler-warning">(revela la sorpresa)</span>
+    </summary>
+    <div id="penalty-list" class="quest-list"></div>
+    <button class="add-quest-btn danger-add-btn" id="add-penalty-btn">+ AÑADIR CASTIGO</button>
+  </details>
 
   <section class="log-block">
     <div class="log-block-header"><span class="log-icon">◆</span> ESTADÍSTICAS</div>
@@ -185,6 +211,7 @@
     <div class="modal-choice" id="new-quest-freq">
       <button data-val="daily" class="choice-btn active">Diaria</button>
       <button data-val="weekly" class="choice-btn">Semanal</button>
+      <button data-val="extra" class="choice-btn">Extraordinaria</button>
     </div>
     <label class="modal-label">XP</label>
     <div class="modal-choice" id="new-quest-xp">
@@ -192,6 +219,7 @@
       <button data-val="15" class="choice-btn active">15</button>
       <button data-val="20" class="choice-btn">20</button>
       <button data-val="30" class="choice-btn">30</button>
+      <button data-val="50" class="choice-btn">50</button>
     </div>
     <div class="modal-actions">
       <button class="sys-btn ghost" id="modal-cancel">CANCELAR</button>

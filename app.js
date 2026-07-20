@@ -11,7 +11,6 @@ const DEFAULT_QUESTS = [
   { id:'roig-guion',     area:'roig',     name:'Escribir o mejorar un guion',          xp:20, freq:'daily' },
   { id:'roig-publicar',  area:'roig',     name:'Publicar en Instagram',                xp:25, freq:'daily' },
   { id:'roig-comunidad', area:'roig',     name:'Responder comentarios y DMs',          xp:10, freq:'daily' },
-  { id:'roig-007',       area:'roig',     name:'Pasar el Sistema 007 antes de publicar', xp:10, freq:'daily' },
   { id:'roig-estudiar',  area:'roig',     name:'Estudiar referencias / competencia',   xp:15, freq:'daily' },
   { id:'roig-metricas',  area:'roig',     name:'Revisar métricas de la semana',        xp:20, freq:'weekly' },
   // Disciplina / hábitos
@@ -32,7 +31,7 @@ const DEFAULT_REWARDS = [
 ];
 
 const DEFAULT_PENALTIES = [
-  { id:'pn-flexiones', name:'20 flexiones ahora mismo' },
+  { id:'pn-flexiones', name:'40 flexiones ahora mismo' },
   { id:'pn-fria',      name:'Ducha fría de 1 minuto' },
   { id:'pn-dulce',     name:'Nada de dulce en 24h' },
   { id:'pn-movil',     name:'1 hora sin móvil' },
@@ -40,13 +39,31 @@ const DEFAULT_PENALTIES = [
   { id:'pn-madrugar',  name:'Levantarte 1h antes mañana' },
 ];
 
+const DEFAULT_EXTRA_POOL = [
+  { id:'ex-3piezas',      area:'roig',    name:'Grabar 3 piezas de contenido en un día',              xp:60 },
+  { id:'ex-carrusel',     area:'roig',    name:'Publicar un carrusel completo',                       xp:50 },
+  { id:'ex-5ideas',       area:'roig',    name:'Escribir 5 ideas nuevas de guion',                    xp:40 },
+  { id:'ex-competencia',  area:'roig',    name:'Analizar a fondo un competidor y sacar 3 aprendizajes', xp:40 },
+  { id:'ex-sitionuevo',   area:'roig',    name:'Salir a grabar en un sitio nuevo',                    xp:50 },
+  { id:'ex-entrenardoble',area:'habitos', name:'Entrenar el doble de lo normal',                      xp:50 },
+  { id:'ex-ayuno',        area:'habitos', name:'Ayunar 16 horas',                                     xp:40 },
+  { id:'ex-desconexion',  area:'habitos', name:'Día entero sin redes sociales (fuera de publicar)',   xp:60 },
+];
+
+const RANK_TITLES = { E:'Novato', D:'Aprendiz', C:'Competente', B:'Profesional', A:'Experto', S:'Maestro', SS:'Leyenda' };
+
 const PENALTY_THRESHOLD = 0.5; // si completas menos de la mitad de misiones diarias, hay castigo
+const EXTRA_SPAWN_CHANCE = 0.4; // probabilidad diaria de que aparezca una misión extraordinaria
 
 function defaultState(){
+  const today = todayStr();
   return {
-    quests: DEFAULT_QUESTS.map(q => ({...q, custom:false, streak:0, lastDone:null})),
+    quests: DEFAULT_QUESTS.map(q => ({...q, custom:false, streak:0, lastDone:null, createdDate:today, totalCompletions:0})),
     rewards: DEFAULT_REWARDS.map(r => ({...r, custom:false})),
     penalties: DEFAULT_PENALTIES.map(p => ({...p, custom:false})),
+    extraPool: DEFAULT_EXTRA_POOL.map(t => ({...t, custom:false})),
+    activeExtra: null,
+    lastExtraCheckDate: null,
     dailyLog: {},
     pendingPenalties: 0,
     roigXp: 0,
@@ -55,8 +72,10 @@ function defaultState(){
     totalCompleted: 0,
     totalRedeemed: 0,
     bestStreak: 0,
-    firstUseDate: todayStr(),
-    activeDays: [todayStr()],
+    globalStreak: 0,
+    lastActiveDate: null,
+    firstUseDate: today,
+    activeDays: [today],
   };
 }
 
@@ -68,12 +87,28 @@ function loadState(){
     if(!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if(!parsed.quests || !Array.isArray(parsed.quests)) return defaultState();
+
     if(!parsed.rewards || !Array.isArray(parsed.rewards)) parsed.rewards = DEFAULT_REWARDS.map(r => ({...r, custom:false}));
     if(!parsed.penalties || !Array.isArray(parsed.penalties)) parsed.penalties = DEFAULT_PENALTIES.map(p => ({...p, custom:false}));
+    if(!parsed.extraPool || !Array.isArray(parsed.extraPool)) parsed.extraPool = DEFAULT_EXTRA_POOL.map(t => ({...t, custom:false}));
+    if(parsed.activeExtra === undefined) parsed.activeExtra = null;
+    if(!parsed.lastExtraCheckDate) parsed.lastExtraCheckDate = null;
     if(!parsed.dailyLog || typeof parsed.dailyLog !== 'object') parsed.dailyLog = {};
     if(typeof parsed.pendingPenalties !== 'number') parsed.pendingPenalties = 0;
     if(typeof parsed.wallet !== 'number') parsed.wallet = 0;
     if(typeof parsed.totalRedeemed !== 'number') parsed.totalRedeemed = 0;
+    if(typeof parsed.globalStreak !== 'number') parsed.globalStreak = 0;
+    if(!parsed.lastActiveDate) parsed.lastActiveDate = null;
+
+    // migraciones puntuales pedidas por Sergi
+    parsed.quests = parsed.quests.filter(q => q.id !== 'roig-007');
+    parsed.quests.forEach(q => {
+      if(!q.createdDate) q.createdDate = parsed.firstUseDate || todayStr();
+      if(typeof q.totalCompletions !== 'number') q.totalCompletions = 0;
+    });
+    const flex = parsed.penalties.find(p => p.id === 'pn-flexiones');
+    if(flex) flex.name = '40 flexiones ahora mismo';
+
     return parsed;
   }catch(e){
     return defaultState();
@@ -107,6 +142,11 @@ function weekStr(){
 function periodKey(freq){
   return freq === 'weekly' ? weekStr() : todayStr();
 }
+function daysSinceInclusive(dateStr){
+  const d1 = new Date(dateStr + 'T00:00:00');
+  const d2 = new Date(todayStr() + 'T00:00:00');
+  return Math.max(1, Math.round((d2 - d1) / 86400000) + 1);
+}
 
 /* ---------------- level / rank math ---------------- */
 function levelFromXp(totalXp){
@@ -134,7 +174,17 @@ function rankFromLevel(level){
   return cur;
 }
 
-/* ---------------- sound fx (Web Audio API, sin archivos) ---------------- */
+/* ---------------- rendimiento por misión (radiografía) ---------------- */
+function expectedForQuest(q){
+  const days = daysSinceInclusive(q.createdDate || state.firstUseDate);
+  return q.freq === 'weekly' ? Math.max(1, Math.ceil(days/7)) : days;
+}
+function completionRate(q){
+  const expected = expectedForQuest(q);
+  return Math.min(1, (q.totalCompletions || 0) / expected);
+}
+
+/* ---------------- feedback: sonido, vibración, flash ---------------- */
 let audioCtx = null;
 function getCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -178,8 +228,17 @@ function playPenalty(){
   beep(185, 0.25, 'sawtooth', 0.15, 0.13);
   beep(140, 0.35, 'sawtooth', 0.3, 0.14);
 }
+function vibrate(pattern){
+  try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){ /* no soportado */ }
+}
+function flashScreen(gold){
+  const el = document.createElement('div');
+  el.className = 'flash-overlay' + (gold ? ' gold' : '');
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 650);
+}
 
-/* ---------------- registro diario y castigos ---------------- */
+/* ---------------- registro diario, castigos y misiones extraordinarias ---------------- */
 function updateTodayLog(){
   const today = todayStr();
   const dailyQuests = state.quests.filter(q => q.freq === 'daily');
@@ -203,10 +262,29 @@ function checkPenalties(){
   if(changed) saveState();
 }
 
+function checkExtraSpawn(){
+  const today = todayStr();
+  if(state.lastExtraCheckDate === today) return;
+  state.lastExtraCheckDate = today;
+  if(!state.activeExtra && state.extraPool.length > 0 && Math.random() < EXTRA_SPAWN_CHANCE){
+    const tmpl = state.extraPool[Math.floor(Math.random() * state.extraPool.length)];
+    state.activeExtra = { id:'extra-'+Date.now(), templateId:tmpl.id, name:tmpl.name, xp:tmpl.xp, area:tmpl.area };
+  }
+  saveState();
+}
+
+function updateGlobalStreak(){
+  const today = todayStr();
+  if(state.lastActiveDate === today) return;
+  state.globalStreak = (state.lastActiveDate === yesterdayStr()) ? state.globalStreak + 1 : 1;
+  state.lastActiveDate = today;
+}
+
 /* ---------------- rendering ---------------- */
 function render(){
   updateTodayLog();
   checkPenalties();
+  checkExtraSpawn();
 
   const totalXp = state.roigXp + state.habitosXp;
   const global = levelFromXp(totalXp);
@@ -214,10 +292,12 @@ function render(){
 
   document.getElementById('rank-badge').textContent = rank;
   document.getElementById('level-num').textContent = global.level;
+  document.getElementById('hunter-title').textContent = RANK_TITLES[rank] || '';
   document.getElementById('xp-current').textContent = global.xpInto;
   document.getElementById('xp-needed').textContent = global.xpNeeded;
   document.getElementById('xp-fill').style.width = `${Math.min(100,(global.xpInto/global.xpNeeded)*100)}%`;
   document.getElementById('wallet-num').textContent = state.wallet;
+  document.getElementById('global-streak').textContent = state.globalStreak;
 
   const roigLvl = levelFromXp(state.roigXp);
   const habLvl = levelFromXp(state.habitosXp);
@@ -226,9 +306,12 @@ function render(){
   document.getElementById('roig-fill').style.width = `${Math.min(100,(roigLvl.xpInto/roigLvl.xpNeeded)*100)}%`;
   document.getElementById('habitos-fill').style.width = `${Math.min(100,(habLvl.xpInto/habLvl.xpNeeded)*100)}%`;
 
+  renderExtraQuest();
   renderQuestList('daily');
   renderQuestList('weekly');
+  renderRadar();
   renderRewardList();
+  renderExtraPoolList();
   renderPenaltyList();
   renderPenaltyBox();
 
@@ -295,6 +378,114 @@ function renderQuestList(freq){
       item.appendChild(del);
     }
 
+    listEl.appendChild(item);
+  });
+}
+
+function renderExtraQuest(){
+  const section = document.getElementById('extra-quest-section');
+  if(state.activeExtra){
+    section.classList.remove('hidden');
+    document.getElementById('extra-quest-name').textContent = state.activeExtra.name;
+    document.getElementById('extra-quest-xp').textContent = `+${state.activeExtra.xp} XP`;
+  } else {
+    section.classList.add('hidden');
+  }
+}
+
+function renderExtraPoolList(){
+  const listEl = document.getElementById('extra-pool-list');
+  listEl.innerHTML = '';
+  state.extraPool.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'quest-item';
+
+    const body = document.createElement('div');
+    body.className = 'quest-body';
+    const name = document.createElement('div');
+    name.className = 'quest-name';
+    name.textContent = t.name;
+    const meta = document.createElement('div');
+    meta.className = 'quest-meta';
+    const tag = document.createElement('span');
+    tag.className = t.area === 'roig' ? 'quest-tag-roig' : 'quest-tag-habitos';
+    tag.textContent = t.area === 'roig' ? 'SEÑOR ROIG' : 'DISCIPLINA';
+    meta.appendChild(tag);
+    body.appendChild(name);
+    body.appendChild(meta);
+
+    const xp = document.createElement('div');
+    xp.className = 'quest-xp';
+    xp.textContent = `+${t.xp} XP`;
+
+    item.appendChild(body);
+    item.appendChild(xp);
+
+    if(t.custom){
+      const del = document.createElement('button');
+      del.className = 'quest-del';
+      del.textContent = '✕';
+      del.addEventListener('click', (e) => { e.stopPropagation(); deleteExtraTemplate(t.id); });
+      item.appendChild(del);
+    }
+
+    listEl.appendChild(item);
+  });
+}
+
+function renderRadar(){
+  const listEl = document.getElementById('radar-list');
+  listEl.innerHTML = '';
+  const trackedQuests = state.quests.filter(q => q.freq === 'daily' || q.freq === 'weekly');
+
+  if(trackedQuests.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'radar-empty';
+    empty.textContent = 'Aún no hay datos suficientes.';
+    listEl.appendChild(empty);
+    return;
+  }
+
+  const rows = trackedQuests.map(q => ({ q, rate: completionRate(q) }));
+  rows.sort((a,b) => b.rate - a.rate);
+
+  rows.forEach(({q, rate}) => {
+    const pct = Math.round(rate * 100);
+    const color = rate >= 0.7 ? 'var(--green)' : (rate >= 0.4 ? 'var(--gold)' : 'var(--danger)');
+
+    const item = document.createElement('div');
+    item.className = 'radar-item';
+
+    const top = document.createElement('div');
+    top.className = 'radar-top';
+
+    const nameWrap = document.createElement('span');
+    nameWrap.className = 'radar-name';
+    const tagDot = document.createElement('span');
+    tagDot.className = 'radar-tag';
+    tagDot.style.color = q.area === 'roig' ? 'var(--roig-color)' : 'var(--habitos-color)';
+    tagDot.textContent = '●';
+    nameWrap.appendChild(tagDot);
+    nameWrap.appendChild(document.createTextNode(q.name));
+
+    const pctEl = document.createElement('span');
+    pctEl.className = 'radar-pct';
+    pctEl.style.color = color;
+    pctEl.textContent = `${pct}%`;
+
+    top.appendChild(nameWrap);
+    top.appendChild(pctEl);
+
+    const bar = document.createElement('div');
+    bar.className = 'radar-bar';
+    const fill = document.createElement('div');
+    fill.className = 'radar-fill';
+    fill.style.width = `${pct}%`;
+    fill.style.background = color;
+    bar.appendChild(fill);
+
+    item.appendChild(top);
+    item.appendChild(bar);
     listEl.appendChild(item);
   });
 }
@@ -383,6 +574,13 @@ function deletePenalty(id){
   render();
 }
 
+function deleteExtraTemplate(id){
+  if(!confirm('¿Eliminar esta misión extraordinaria del banco?')) return;
+  state.extraPool = state.extraPool.filter(t => t.id !== id);
+  saveState();
+  render();
+}
+
 /* ---------------- quest actions ---------------- */
 function toggleQuest(id){
   const q = state.quests.find(x => x.id === id);
@@ -397,6 +595,7 @@ function toggleQuest(id){
   if(wasDone){
     q.lastDone = null;
     if(q.freq === 'daily' && q.streak > 0) q.streak -= 1;
+    q.totalCompletions = Math.max(0, (q.totalCompletions || 0) - 1);
     addXp(q.area, -q.xp);
     state.wallet = Math.max(0, state.wallet - q.xp);
     state.totalCompleted = Math.max(0, state.totalCompleted - 1);
@@ -407,12 +606,15 @@ function toggleQuest(id){
       if(q.streak > state.bestStreak) state.bestStreak = q.streak;
     }
     q.lastDone = key;
+    q.totalCompletions = (q.totalCompletions || 0) + 1;
     addXp(q.area, q.xp);
     state.wallet += q.xp;
     state.totalCompleted += 1;
     const today = todayStr();
     if(!state.activeDays.includes(today)) state.activeDays.push(today);
+    updateGlobalStreak();
     playQuestComplete();
+    vibrate(15);
   }
 
   saveState();
@@ -443,6 +645,34 @@ function deleteQuest(id){
   render();
 }
 
+function completeExtraQuest(){
+  const extra = state.activeExtra;
+  if(!extra) return;
+
+  const beforeTotal = state.roigXp + state.habitosXp;
+  const beforeGlobal = levelFromXp(beforeTotal);
+  const beforeRank = rankFromLevel(beforeGlobal.level);
+
+  addXp(extra.area, extra.xp);
+  state.wallet += extra.xp;
+  state.totalCompleted += 1;
+  updateGlobalStreak();
+  state.activeExtra = null;
+
+  saveState();
+  render();
+  playQuestComplete();
+  vibrate([20,30,20,30,40]);
+
+  const afterTotal = state.roigXp + state.habitosXp;
+  const afterGlobal = levelFromXp(afterTotal);
+  const afterRank = rankFromLevel(afterGlobal.level);
+  if(afterGlobal.level > beforeGlobal.level) showLevelUp(beforeGlobal.level, afterGlobal.level);
+  if(afterRank !== beforeRank){
+    setTimeout(() => showRankUp(beforeRank, afterRank), afterGlobal.level > beforeGlobal.level ? 1500 : 0);
+  }
+}
+
 /* ---------------- reward actions ---------------- */
 function redeemReward(id){
   const r = state.rewards.find(x => x.id === id);
@@ -453,6 +683,7 @@ function redeemReward(id){
   saveState();
   render();
   playRedeem();
+  vibrate(20);
   showReward(r);
 }
 
@@ -469,12 +700,16 @@ function showLevelUp(beforeLevel, afterLevel){
   document.getElementById('levelup-after').textContent = `Nivel ${afterLevel}`;
   document.getElementById('levelup-overlay').classList.remove('hidden');
   playLevelUp();
+  vibrate([40,30,40]);
+  flashScreen(false);
 }
 function showRankUp(beforeRank, afterRank){
   document.getElementById('rankup-before').textContent = `Rango ${beforeRank}`;
   document.getElementById('rankup-after').textContent = `Rango ${afterRank}`;
   document.getElementById('rankup-overlay').classList.remove('hidden');
   playRankUp();
+  vibrate([50,50,50,50,90]);
+  flashScreen(true);
 }
 function showReward(reward){
   document.getElementById('reward-title').textContent = reward.name;
@@ -501,9 +736,11 @@ document.getElementById('open-penalty-btn').addEventListener('click', () => {
   saveState();
   render();
   playPenalty();
+  vibrate([80,40,80]);
   document.getElementById('penalty-text').textContent = pick.name;
   document.getElementById('penalty-overlay').classList.remove('hidden');
 });
+document.getElementById('extra-quest-complete').addEventListener('click', completeExtraQuest);
 
 /* ---------------- add quest modal ---------------- */
 let newQuestArea = 'roig';
@@ -534,16 +771,30 @@ document.getElementById('modal-cancel').addEventListener('click', () => {
 document.getElementById('modal-confirm').addEventListener('click', () => {
   const name = document.getElementById('new-quest-name').value.trim();
   if(!name) return;
-  state.quests.push({
-    id: 'custom-' + Date.now(),
-    area: newQuestArea,
-    name,
-    xp: newQuestXp,
-    freq: newQuestFreq,
-    custom: true,
-    streak: 0,
-    lastDone: null,
-  });
+
+  if(newQuestFreq === 'extra'){
+    state.extraPool.push({
+      id: 'extratmpl-' + Date.now(),
+      area: newQuestArea,
+      name,
+      xp: newQuestXp,
+      custom: true,
+    });
+  } else {
+    state.quests.push({
+      id: 'custom-' + Date.now(),
+      area: newQuestArea,
+      name,
+      xp: newQuestXp,
+      freq: newQuestFreq,
+      custom: true,
+      streak: 0,
+      lastDone: null,
+      createdDate: todayStr(),
+      totalCompletions: 0,
+    });
+  }
+
   saveState();
   render();
   document.getElementById('modal-overlay').classList.add('hidden');

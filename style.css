@@ -95,6 +95,13 @@ html,body{
   margin-top:2px;
 }
 .hunter-level span{color:var(--cyan); text-shadow:0 0 8px rgba(91,227,255,0.6);}
+.hunter-title{
+  font-size:11px;
+  letter-spacing:1.5px;
+  color:var(--gold);
+  text-shadow:0 0 6px rgba(255,215,107,0.5);
+  margin-top:2px;
+}
 .icon-btn{
   background:transparent;
   border:1px solid rgba(255,255,255,0.15);
@@ -148,6 +155,8 @@ html,body{
   color:var(--green);
   text-shadow:0 0 8px rgba(93,255,168,0.6);
 }
+.streak-row{border-top:none; padding-top:0; margin-top:6px;}
+.streak-num{color:var(--gold); text-shadow:0 0 8px rgba(255,215,107,0.6);}
 
 /* ---------- CAJA DE CASTIGO ---------- */
 .penalty-box{
@@ -193,6 +202,79 @@ html,body{
   text-shadow:0 0 12px rgba(255,77,109,0.7);
   box-shadow:0 0 16px rgba(255,77,109,0.25), inset 0 0 10px rgba(255,77,109,0.1);
 }
+
+/* ---------- MISIÓN EXTRAORDINARIA ---------- */
+.extra-quest{
+  margin-top:14px;
+  border-color:rgba(255,215,107,0.45);
+  background:linear-gradient(180deg, rgba(255,215,107,0.1), rgba(8,13,26,0.5));
+  text-align:center;
+  animation:extraPulse 2.4s ease-in-out infinite;
+}
+.extra-quest::before, .extra-quest::after{
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  filter:drop-shadow(0 0 4px var(--gold));
+}
+@keyframes extraPulse{0%,100%{box-shadow:0 0 0 rgba(255,215,107,0);} 50%{box-shadow:0 0 20px rgba(255,215,107,0.3);}}
+.extra-quest-tag{
+  font-family:'Orbitron', sans-serif;
+  font-size:11px;
+  letter-spacing:2px;
+  color:var(--gold);
+  text-shadow:0 0 8px rgba(255,215,107,0.6);
+}
+.extra-quest-name{font-size:16px; font-weight:600; margin-top:8px;}
+.extra-quest-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  margin-top:12px;
+}
+.extra-quest-xp{
+  font-family:'Orbitron', sans-serif;
+  font-size:13px;
+  color:var(--gold);
+  text-shadow:0 0 6px rgba(255,215,107,0.5);
+}
+.extra-btn{margin-top:0; border-color:var(--gold); color:var(--gold); background:rgba(255,215,107,0.1);}
+
+/* ---------- RADIOGRAFÍA ---------- */
+.radar-list{margin-top:12px; display:flex; flex-direction:column; gap:12px;}
+.radar-item{}
+.radar-top{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:5px;}
+.radar-name{font-weight:600;}
+.radar-pct{font-family:'Orbitron', sans-serif; font-size:12px;}
+.radar-bar{height:6px; background:rgba(255,255,255,0.08); overflow:hidden;}
+.radar-fill{height:100%;}
+.radar-tag{font-size:10px; margin-right:6px;}
+.radar-empty{font-size:12px; color:var(--text-dim); font-style:italic;}
+
+/* ---------- CASTIGOS: panel colapsable ---------- */
+.penalty-manage summary{
+  cursor:pointer;
+  list-style:none;
+}
+.penalty-manage summary::-webkit-details-marker{display:none;}
+.spoiler-warning{
+  color:var(--danger);
+  font-size:10px;
+  font-style:italic;
+  margin-left:6px;
+  letter-spacing:0;
+}
+.penalty-manage[open] summary{margin-bottom:4px;}
+
+/* ---------- FLASH DE NIVEL ---------- */
+.flash-overlay{
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:150;
+  background:radial-gradient(circle, rgba(91,227,255,0.55), transparent 70%);
+  animation:flashPulse 0.6s ease-out forwards;
+}
+.flash-overlay.gold{background:radial-gradient(circle, rgba(255,215,107,0.55), transparent 70%);}
+@keyframes flashPulse{0%{opacity:1;} 100%{opacity:0;}}
 
 /* ---------- STATS ---------- */
 .stats-grid{

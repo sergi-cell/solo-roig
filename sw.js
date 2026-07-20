@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sistema-roig-v1';
+const CACHE_NAME = 'sistema-roig-v2';
 const ASSETS = [
   './index.html',
   './style.css',

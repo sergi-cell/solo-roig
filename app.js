@@ -218,93 +218,108 @@ function getCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
+// clave del arreglo: en varios navegadores móviles, si programas un sonido en un
+// AudioContext que todavía está "suspended" (no confirmado como activo), el sonido
+// se descarta en silencio — no da error, simplemente no suena. whenRunning() garantiza
+// que nada se programa hasta que el motor de audio confirma que está corriendo de verdad.
+function whenRunning(fn){
+  try{
+    const ctx = getCtx();
+    if(ctx.state === 'running'){ fn(ctx); return; }
+    ctx.resume().then(() => { if(ctx.state === 'running') fn(ctx); }).catch(() => {});
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
 let audioUnlockDone = false;
 function unlockAudio(){
   if(audioUnlockDone) return;
-  try{
-    const ctx = getCtx();
-    if(ctx.state === 'suspended') ctx.resume();
-    // truco de desbloqueo para Safari/iOS: un buffer silencioso obliga al motor de audio a arrancar de verdad
-    const buffer = ctx.createBuffer(1, 1, 22050);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(ctx.destination);
-    source.start(0);
-    if(ctx.state === 'running') audioUnlockDone = true;
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const buffer = ctx.createBuffer(1, 1, 22050);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+      audioUnlockDone = true;
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
-// se reintenta en CADA toque de los primeros, no solo el primero: en iOS a veces el primer
-// toque no basta para desbloquear el motor de audio del todo
+// se reintenta en cada toque de los primeros, no solo en el primero: así el motor de
+// audio ya está "caliente" para cuando el usuario toca el botón que realmente suena
 ['touchstart','touchend','mousedown','click'].forEach(evt => {
   document.addEventListener(evt, unlockAudio, { capture:true });
 });
+
 function beep(freq, duration, type, startTime, gainVal){
-  try{
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    osc.connect(gain).connect(ctx.destination);
-    const t = ctx.currentTime + startTime;
-    osc.start(t);
-    gain.gain.setValueAtTime(gainVal, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.stop(t + duration + 0.02);
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      osc.connect(gain).connect(ctx.destination);
+      const t = ctx.currentTime + startTime;
+      osc.start(t);
+      gain.gain.setValueAtTime(gainVal, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.stop(t + duration + 0.02);
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
 function sweep(freqStart, freqEnd, duration, startTime, gainVal, type){
-  try{
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type || 'sawtooth';
-    const t = ctx.currentTime + startTime;
-    osc.frequency.setValueAtTime(freqStart, t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t + duration);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    gain.gain.setValueAtTime(gainVal, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.stop(t + duration + 0.02);
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || 'sawtooth';
+      const t = ctx.currentTime + startTime;
+      osc.frequency.setValueAtTime(freqStart, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      gain.gain.setValueAtTime(gainVal, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.stop(t + duration + 0.02);
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
 function thump(freq, duration, startTime, gainVal){
-  try{
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    const t = ctx.currentTime + startTime;
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.4), t + duration);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    gain.gain.setValueAtTime(gainVal, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.stop(t + duration + 0.02);
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      const t = ctx.currentTime + startTime;
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.4), t + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      gain.gain.setValueAtTime(gainVal, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.stop(t + duration + 0.02);
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
 function noiseBurst(duration, startTime, gainVal, filterFreq, filterType){
-  try{
-    const ctx = getCtx();
-    const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for(let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = filterType || 'bandpass';
-    filter.frequency.value = filterFreq || 1200;
-    const gain = ctx.createGain();
-    const t = ctx.currentTime + startTime;
-    gain.gain.setValueAtTime(gainVal, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(t);
-    noise.stop(t + duration + 0.02);
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = filterType || 'bandpass';
+      filter.frequency.value = filterFreq || 1200;
+      const gain = ctx.createGain();
+      const t = ctx.currentTime + startTime;
+      gain.gain.setValueAtTime(gainVal, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      noise.connect(filter).connect(gain).connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + duration + 0.02);
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
 function distortionCurve(amount){
   const n = 4096;
@@ -316,22 +331,23 @@ function distortionCurve(amount){
   return curve;
 }
 function growl(freq, duration, startTime, gainVal){
-  try{
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const shaper = ctx.createWaveShaper();
-    shaper.curve = distortionCurve(30);
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    const t = ctx.currentTime + startTime;
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.6), t + duration);
-    osc.connect(shaper).connect(gain).connect(ctx.destination);
-    osc.start(t);
-    gain.gain.setValueAtTime(gainVal, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.stop(t + duration + 0.02);
-  }catch(e){ /* audio no disponible, se ignora */ }
+  whenRunning((ctx) => {
+    try{
+      const osc = ctx.createOscillator();
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = distortionCurve(30);
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      const t = ctx.currentTime + startTime;
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.6), t + duration);
+      osc.connect(shaper).connect(gain).connect(ctx.destination);
+      osc.start(t);
+      gain.gain.setValueAtTime(gainVal, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.stop(t + duration + 0.02);
+    }catch(e){ /* audio no disponible, se ignora */ }
+  });
 }
 
 function playQuestComplete(){

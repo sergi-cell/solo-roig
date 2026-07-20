@@ -242,27 +242,124 @@ function beep(freq, duration, type, startTime, gainVal){
     osc.stop(t + duration + 0.02);
   }catch(e){ /* audio no disponible, se ignora */ }
 }
+function sweep(freqStart, freqEnd, duration, startTime, gainVal, type){
+  try{
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sawtooth';
+    const t = ctx.currentTime + startTime;
+    osc.frequency.setValueAtTime(freqStart, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), t + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    gain.gain.setValueAtTime(gainVal, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.stop(t + duration + 0.02);
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
+function thump(freq, duration, startTime, gainVal){
+  try{
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const t = ctx.currentTime + startTime;
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.4), t + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    gain.gain.setValueAtTime(gainVal, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.stop(t + duration + 0.02);
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
+function noiseBurst(duration, startTime, gainVal, filterFreq, filterType){
+  try{
+    const ctx = getCtx();
+    const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = filterType || 'bandpass';
+    filter.frequency.value = filterFreq || 1200;
+    const gain = ctx.createGain();
+    const t = ctx.currentTime + startTime;
+    gain.gain.setValueAtTime(gainVal, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(t);
+    noise.stop(t + duration + 0.02);
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
+function distortionCurve(amount){
+  const n = 4096;
+  const curve = new Float32Array(n);
+  for(let i = 0; i < n; i++){
+    const x = (i * 2) / n - 1;
+    curve[i] = ((3 + amount) * x * 20 * Math.PI / 180) / (Math.PI + amount * Math.abs(x));
+  }
+  return curve;
+}
+function growl(freq, duration, startTime, gainVal){
+  try{
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = distortionCurve(30);
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    const t = ctx.currentTime + startTime;
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, freq * 0.6), t + duration);
+    osc.connect(shaper).connect(gain).connect(ctx.destination);
+    osc.start(t);
+    gain.gain.setValueAtTime(gainVal, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.stop(t + duration + 0.02);
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
+
 function playQuestComplete(){
-  beep(880, 0.08, 'square', 0, 0.14);
-  beep(1320, 0.12, 'square', 0.08, 0.12);
+  beep(1200, 0.05, 'square', 0, 0.13);
+  beep(1800, 0.08, 'square', 0.05, 0.11);
+  thump(150, 0.12, 0, 0.10);
 }
 function playUndo(){
-  beep(300, 0.15, 'sine', 0, 0.09);
+  beep(500, 0.05, 'square', 0, 0.08);
+  beep(350, 0.05, 'square', 0.06, 0.08);
+  beep(220, 0.08, 'square', 0.12, 0.08);
 }
 function playLevelUp(){
-  [523.25, 659.25, 783.99, 1046.5].forEach((f,i) => beep(f, 0.18, 'sawtooth', i*0.12, 0.11));
+  sweep(300, 2400, 0.45, 0, 0.08, 'sawtooth');
+  noiseBurst(0.3, 0, 0.05, 4000, 'highpass');
+  [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f,i) => beep(f, 0.16, 'square', 0.15 + i*0.09, 0.10));
+  thump(90, 0.3, 0.5, 0.14);
 }
 function playRankUp(){
-  [392, 523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f,i) => beep(f, 0.22, 'triangle', i*0.09, 0.12));
+  sweep(150, 3200, 0.6, 0, 0.09, 'sawtooth');
+  noiseBurst(0.4, 0, 0.06, 6000, 'highpass');
+  [196, 392, 523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f,i) => beep(f, 0.2, 'triangle', 0.1 + i*0.08, 0.11));
+  growl(90, 0.5, 0.6, 0.09);
+  thump(60, 0.45, 0.65, 0.16);
 }
 function playRedeem(){
-  beep(660, 0.1, 'sine', 0, 0.14);
-  beep(990, 0.16, 'sine', 0.1, 0.14);
+  [880, 1108.73, 1318.51, 1760].forEach((f,i) => beep(f, 0.12, 'sine', i*0.06, 0.11));
+  noiseBurst(0.15, 0, 0.03, 5000, 'highpass');
 }
 function playPenalty(){
-  beep(220, 0.2, 'sawtooth', 0, 0.13);
-  beep(185, 0.25, 'sawtooth', 0.15, 0.13);
-  beep(140, 0.35, 'sawtooth', 0.3, 0.14);
+  growl(260, 0.28, 0, 0.12);
+  growl(170, 0.35, 0.16, 0.12);
+  noiseBurst(0.35, 0.2, 0.07, 300, 'lowpass');
+  thump(65, 0.4, 0.3, 0.15);
+}
+function playExtraAlert(){
+  sweep(600, 1500, 0.25, 0, 0.08, 'sine');
+  noiseBurst(0.15, 0, 0.02, 3000, 'bandpass');
+  beep(1700, 0.1, 'sine', 0.22, 0.08);
 }
 function vibrate(pattern){
   try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){ /* no soportado */ }
@@ -312,6 +409,8 @@ function checkExtraSpawn(){
   if(!state.activeExtra && state.extraPool.length > 0 && Math.random() < EXTRA_SPAWN_CHANCE){
     const tmpl = state.extraPool[Math.floor(Math.random() * state.extraPool.length)];
     state.activeExtra = { id:'extra-'+Date.now(), templateId:tmpl.id, name:tmpl.name, xp:tmpl.xp, area:tmpl.area };
+    playExtraAlert();
+    vibrate([30,20,30]);
   }
   saveState();
 }

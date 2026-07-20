@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sistema-roig-v4';
+const CACHE_NAME = 'sistema-roig-v5';
 const ASSETS = [
   './index.html',
   './style.css',
@@ -24,16 +24,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if(event.request.method !== 'GET') return;
+  // red primero: si hay internet, siempre se sirve la versión más nueva.
+  // el caché solo se usa como respaldo si no hay conexión.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((response) => {
-        if(response.ok && event.request.url.startsWith(self.location.origin)){
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request).then((response) => {
+      if(response.ok && event.request.url.startsWith(self.location.origin)){
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });

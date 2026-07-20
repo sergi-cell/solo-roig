@@ -16,6 +16,7 @@
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+button{touch-action:manipulation;}
 
 html,body{
   margin:0;
@@ -338,6 +339,8 @@ html,body{
   cursor:pointer;
   font-size:15px;
   color:transparent;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(76,231,255,0.3);
 }
 .quest-item.done .quest-check{
   border-color:var(--green);

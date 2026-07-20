@@ -216,17 +216,28 @@ function completionRate(q){
 let audioCtx = null;
 function getCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if(audioCtx.state === 'suspended'){
-    audioCtx.resume();
-    // truco de desbloqueo para Safari/iOS: un buffer silencioso obliga al motor de audio a arrancar de verdad
-    const buffer = audioCtx.createBuffer(1, 1, 22050);
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioCtx.destination);
-    source.start(0);
-  }
   return audioCtx;
 }
+let audioUnlockDone = false;
+function unlockAudio(){
+  if(audioUnlockDone) return;
+  try{
+    const ctx = getCtx();
+    if(ctx.state === 'suspended') ctx.resume();
+    // truco de desbloqueo para Safari/iOS: un buffer silencioso obliga al motor de audio a arrancar de verdad
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+    if(ctx.state === 'running') audioUnlockDone = true;
+  }catch(e){ /* audio no disponible, se ignora */ }
+}
+// se reintenta en CADA toque de los primeros, no solo el primero: en iOS a veces el primer
+// toque no basta para desbloquear el motor de audio del todo
+['touchstart','touchend','mousedown','click'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio, { capture:true });
+});
 function beep(freq, duration, type, startTime, gainVal){
   try{
     const ctx = getCtx();

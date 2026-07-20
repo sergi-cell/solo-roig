@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#04060c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sistema">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>SISTEMA — Señor Roig</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Orbitron:wght@600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== NOTIFICACIÓN: SUBIDA DE NIVEL ===== -->
+<div id="levelup-overlay" class="hidden overlay-root">
+  <div class="notif-box">
+    <div class="notif-header">
+      <div class="notif-icon">!</div>
+      <div class="notif-title-box">NOTIFICACIÓN DEL SISTEMA</div>
+    </div>
+    <div class="notif-body">Tu nivel ha cambiado</div>
+    <div class="notif-value-box" id="levelup-before">Nivel 1</div>
+    <div class="notif-chevron">▼▼</div>
+    <div class="notif-value-box glow-green" id="levelup-after">Nivel 2</div>
+    <button class="sys-btn" id="levelup-close">CONTINUAR</button>
+  </div>
+</div>
+
+<!-- ===== NOTIFICACIÓN: ASCENSO DE RANGO ===== -->
+<div id="rankup-overlay" class="hidden overlay-root">
+  <div class="notif-box">
+    <div class="notif-header">
+      <div class="notif-icon">!</div>
+      <div class="notif-title-box">ASCENSO DE RANGO</div>
+    </div>
+    <div class="notif-body">Tu poder ha sido reconocido por el Sistema</div>
+    <div class="notif-value-box" id="rankup-before">Rango E</div>
+    <div class="notif-chevron">▼▼</div>
+    <div class="notif-value-box glow-gold" id="rankup-after">Rango D</div>
+    <button class="sys-btn" id="rankup-close">CONTINUAR</button>
+  </div>
+</div>
+
+<!-- ===== CASTIGO DEL SISTEMA (revelado aleatorio) ===== -->
+<div id="penalty-overlay" class="hidden overlay-root">
+  <div class="notif-box danger-card">
+    <div class="notif-header">
+      <div class="notif-icon">☠</div>
+      <div class="notif-title-box">CASTIGO DEL SISTEMA</div>
+    </div>
+    <div class="notif-body">No cumpliste tus misiones. El Sistema decide:</div>
+    <div class="notif-value-box glow-danger" id="penalty-text">???</div>
+    <button class="sys-btn danger-btn" id="penalty-close">ACEPTAR</button>
+  </div>
+</div>
+
+<!-- ===== ITEM CARD: RECOMPENSA CANJEADA ===== -->
+<div id="reward-overlay" class="hidden overlay-root">
+  <div class="notif-box item-card">
+    <div class="notif-header">
+      <div class="notif-icon">★</div>
+      <div class="notif-title-box">RECOMPENSA CANJEADA</div>
+    </div>
+    <div class="item-row"><span class="item-label">RECOMPENSA:</span><span id="reward-title">Chocolate</span></div>
+    <div class="item-row"><span class="item-label">COSTE:</span><span id="reward-cost-used">60 💎</span></div>
+    <div class="notif-body item-benefit">Disfrútalo. Te lo has ganado.</div>
+    <button class="sys-btn" id="reward-close">CONTINUAR</button>
+  </div>
+</div>
+
+<main id="app">
+
+  <header class="hud-frame sys-header">
+    <div class="sys-header-top">
+      <div class="rank-badge" id="rank-badge">E</div>
+      <div class="hunter-info">
+        <div class="hunter-name">CAZADOR SEÑOR ROIG</div>
+        <div class="hunter-level">NIVEL <span id="level-num">1</span></div>
+      </div>
+      <button class="icon-btn" id="reset-btn" title="Reiniciar sistema">⟲</button>
+    </div>
+    <div class="xp-bar-wrap">
+      <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
+      <div class="xp-label"><span id="xp-current">0</span> / <span id="xp-needed">100</span> XP</div>
+    </div>
+    <div class="wallet-row">
+      <span class="wallet-icon">💎</span>
+      <span class="wallet-text">PUNTOS DISPONIBLES</span>
+      <span class="wallet-num" id="wallet-num">0</span>
+    </div>
+  </header>
+
+  <section id="penalty-box-section" class="hud-frame penalty-box hidden">
+    <div class="penalty-box-icon">🔒</div>
+    <div class="penalty-box-text">
+      <div class="penalty-box-title">CASTIGO PENDIENTE</div>
+      <div class="penalty-box-sub" id="penalty-pending-count">1 caja sin abrir</div>
+    </div>
+    <button class="sys-btn danger-btn" id="open-penalty-btn">ABRIR</button>
+  </section>
+
+  <section class="stats-grid">
+    <div class="hud-frame stat-card roig">
+      <div class="stat-icon">📈</div>
+      <div class="stat-name">SEÑOR ROIG</div>
+      <div class="stat-level">Nv. <span id="roig-level">1</span></div>
+      <div class="mini-bar"><div class="mini-fill" id="roig-fill"></div></div>
+    </div>
+    <div class="hud-frame stat-card habitos">
+      <div class="stat-icon">⚔️</div>
+      <div class="stat-name">DISCIPLINA</div>
+      <div class="stat-level">Nv. <span id="habitos-level">1</span></div>
+      <div class="mini-bar"><div class="mini-fill" id="habitos-fill"></div></div>
+    </div>
+  </section>
+
+  <section class="log-block">
+    <div class="log-block-header">
+      <span class="log-icon">◆</span> MISIONES DIARIAS
+      <span class="log-count" id="daily-count">0/0</span>
+    </div>
+    <div id="daily-list" class="quest-list"></div>
+  </section>
+
+  <section class="log-block">
+    <div class="log-block-header">
+      <span class="log-icon">◆</span> MISIONES SEMANALES
+      <span class="log-count" id="weekly-count">0/0</span>
+    </div>
+    <div id="weekly-list" class="quest-list"></div>
+  </section>
+
+  <button class="add-quest-btn" id="add-quest-btn">+ AÑADIR MISIÓN</button>
+
+  <section class="log-block shop-block">
+    <div class="log-block-header">
+      <span class="log-icon">◆</span> TIENDA DE RECOMPENSAS
+    </div>
+    <div id="reward-list" class="quest-list"></div>
+  </section>
+
+  <button class="add-quest-btn shop-add-btn" id="add-reward-btn">+ AÑADIR RECOMPENSA</button>
+
+  <section class="log-block">
+    <div class="log-block-header">
+      <span class="log-icon">◆</span> CASTIGOS POSIBLES
+    </div>
+    <div id="penalty-list" class="quest-list"></div>
+  </section>
+
+  <button class="add-quest-btn danger-add-btn" id="add-penalty-btn">+ AÑADIR CASTIGO</button>
+
+  <section class="log-block">
+    <div class="log-block-header"><span class="log-icon">◆</span> ESTADÍSTICAS</div>
+    <div class="stats-row">
+      <div class="stats-item"><div class="stats-num" id="stat-total">0</div><div class="stats-label">Misiones completadas</div></div>
+      <div class="stats-item"><div class="stats-num" id="stat-streak">0</div><div class="stats-label">Mejor racha</div></div>
+      <div class="stats-item"><div class="stats-num" id="stat-days">0</div><div class="stats-label">Días activo</div></div>
+    </div>
+  </section>
+
+  <footer class="sys-footer">El Sistema observa. Cada misión te acerca al siguiente rango.</footer>
+
+</main>
+
+<!-- ===== MODAL: NUEVA MISIÓN ===== -->
+<div id="modal-overlay" class="hidden overlay-root">
+  <div class="modal-box">
+    <div class="modal-title">NUEVA MISIÓN</div>
+    <label class="modal-label">Nombre</label>
+    <input type="text" id="new-quest-name" class="modal-input" maxlength="60" placeholder="Ej: Grabar 2 reels">
+    <label class="modal-label">Área</label>
+    <div class="modal-choice" id="new-quest-area">
+      <button data-val="roig" class="choice-btn active">Señor Roig</button>
+      <button data-val="habitos" class="choice-btn">Disciplina</button>
+    </div>
+    <label class="modal-label">Frecuencia</label>
+    <div class="modal-choice" id="new-quest-freq">
+      <button data-val="daily" class="choice-btn active">Diaria</button>
+      <button data-val="weekly" class="choice-btn">Semanal</button>
+    </div>
+    <label class="modal-label">XP</label>
+    <div class="modal-choice" id="new-quest-xp">
+      <button data-val="10" class="choice-btn">10</button>
+      <button data-val="15" class="choice-btn active">15</button>
+      <button data-val="20" class="choice-btn">20</button>
+      <button data-val="30" class="choice-btn">30</button>
+    </div>
+    <div class="modal-actions">
+      <button class="sys-btn ghost" id="modal-cancel">CANCELAR</button>
+      <button class="sys-btn" id="modal-confirm">CREAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: NUEVA RECOMPENSA ===== -->
+<div id="reward-modal-overlay" class="hidden overlay-root">
+  <div class="modal-box">
+    <div class="modal-title">NUEVA RECOMPENSA</div>
+    <label class="modal-label">Nombre</label>
+    <input type="text" id="new-reward-name" class="modal-input" maxlength="60" placeholder="Ej: Cenar fuera">
+    <label class="modal-label">Coste (💎 puntos)</label>
+    <input type="number" id="new-reward-cost" class="modal-input" min="5" step="5" value="100">
+    <div class="modal-actions">
+      <button class="sys-btn ghost" id="reward-modal-cancel">CANCELAR</button>
+      <button class="sys-btn" id="reward-modal-confirm">CREAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: NUEVO CASTIGO ===== -->
+<div id="penalty-modal-overlay" class="hidden overlay-root">
+  <div class="modal-box">
+    <div class="modal-title">NUEVO CASTIGO</div>
+    <label class="modal-label">Descripción</label>
+    <input type="text" id="new-penalty-name" class="modal-input" maxlength="80" placeholder="Ej: Ducha fría 1 min">
+    <div class="modal-actions">
+      <button class="sys-btn ghost" id="penalty-modal-cancel">CANCELAR</button>
+      <button class="sys-btn" id="penalty-modal-confirm">CREAR</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
